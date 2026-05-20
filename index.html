@@ -50,6 +50,7 @@
     .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease, background 0.3s; }
     .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; margin-left: 6px; background: var(--tag-bg); color: var(--tag-text); transition: background 0.3s, color 0.3s; }
     .footer { text-align: center; padding: 20px 10px; color: var(--text-light); font-size: 0.75rem; margin-top: 20px; transition: color 0.3s; }
+    .metric-row .label { color: var(--text-light); font-weight: 600; }
     @media (max-width: 600px) { .filters { grid-template-columns: 1fr; } .summary-bar { grid-template-columns: repeat(2, 1fr); } .params-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -57,10 +58,10 @@
   <div class="header">
     <h1>🏦 Bank Muamalat</h1>
     <div class="meta"><b>Leading Indicator Dashboard</b></div>
+    <div class="meta" id="selectedBranchDisplay">📍 Branch: <span id="branchNameText">Semua Branch</span></div>
     <div class="meta">📅 Per: 18 Mei 2026 | 📆 Hari Kerja: 16</div>
     <button id="themeToggle" class="theme-toggle">🌙 Dark</button>
   </div>
-
   <div class="filters">
     <div><label>📍 Co-Branch</label><select id="coBranchFilter"><option value="ALL">Semua Co-Branch</option><option value="BANDA ACEH">BANDA ACEH</option><option value="BENGKULU">BENGKULU</option><option value="LAMPUNG">LAMPUNG</option><option value="MEDAN BALAIKOTA">MEDAN BALAIKOTA</option><option value="MEDAN BARU">MEDAN BARU</option><option value="PADANG">PADANG</option><option value="PALEMBANG">PALEMBANG</option><option value="PANGKAL PINANG">PANGKAL PINANG</option><option value="PEKANBARU">PEKANBARU</option></select></div>
     <div><label>🏢 Branch</label><select id="branchFilter"><option value="ALL">Semua Branch</option></select></div>
@@ -137,6 +138,31 @@
     themeLabel.textContent = theme === 'dark' ? 'Dark' : 'Light';
   }
 
+  function updateBranchDisplay() {
+  const coVal = coBranchSelect.value;
+  const brVal = branchSelect.value;
+  const displayText = (brVal !== 'ALL') ? brVal : (coVal !== 'ALL' ? coVal : 'Semua Branch');
+  document.getElementById('branchNameText').textContent = displayText;
+}
+
+// Update event listener yang sudah ada:
+coBranchSelect.addEventListener('change', () => { 
+  updateBranchOptions(coBranchSelect.value); 
+  updateBranchDisplay();
+  renderDashboard(); 
+});
+
+branchSelect.addEventListener('change', () => {
+  updateBranchDisplay();
+  renderDashboard();
+});
+
+function resetDashboard() {
+  coBranchSelect.value = 'ALL';
+  updateBranchOptions('ALL');
+  updateBranchDisplay();
+  renderDashboard();
+}
   // 🔄 CASCADING DROPDOWN & FILTER
   function updateBranchOptions(selectedCo) {
     branchSelect.innerHTML = '<option value="ALL">Semua Branch</option>';
@@ -272,6 +298,7 @@
 
     updateBranchOptions('ALL');
     renderDashboard();
+    updateBranchDisplay();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
