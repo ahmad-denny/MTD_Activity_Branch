@@ -51,7 +51,9 @@
     .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; margin-left: 6px; background: var(--tag-bg); color: var(--tag-text); transition: background 0.3s, color 0.3s; }
     .footer { text-align: center; padding: 20px 10px; color: var(--text-light); font-size: 0.75rem; margin-top: 20px; transition: color 0.3s; }
     .loading, .error-msg { grid-column: 1 / -1; text-align: center; padding: 24px; color: var(--text-light); }
-    .error-msg { color: var(--danger); background: var(--card-bg); border-radius: 12px; margin-bottom: 20px; }
+    .error-msg { color: var(--danger); background: var(--card-bg); border-radius: 12px; margin-bottom: 20px; border: 2px solid var(--danger); }
+    .error-msg h3 { color: var(--danger); margin-bottom: 12px; }
+    .error-msg code { background: var(--bg); padding: 4px 8px; border-radius: 4px; display: block; margin: 8px 0; font-family: monospace; }
     @media (max-width: 600px) { .filters { grid-template-columns: 1fr; } .summary-bar { grid-template-columns: repeat(2, 1fr); } .params-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -98,11 +100,14 @@
 
   // 📥 LOAD EXTERNAL JSON
   async function loadExternalData() {
+    const container = document.getElementById('paramsContainer');
     try {
       const res = await fetch('lead_inc.json');
-      if (!res.ok) throw new Error('File tidak ditemukan');
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const json = await res.json();
       const raw = json["Sheet1 "] || [];
+
+      if (raw.length === 0) throw new Error('Data kosong di file JSON');
 
       // Bersihkan data (trim spasi & konversi ke number)
       const toNum = (v) => {
@@ -130,12 +135,31 @@
       updateBranchOptions('ALL');
       renderDashboard();
     } catch (err) {
-      console.error("Gagal memuat JSON:", err);
-      document.getElementById('paramsContainer').innerHTML = `
+      console.error("Error loading JSON:", err);
+      container.innerHTML = `
         <div class="error-msg">
-          ⚠️ <strong>Gagal memuat lead_inc.json</strong><br>
-          <small>1. Pastikan file HTML & JSON berada di folder yang sama.<br>
-          2. Jika dibuka langsung (double-click), gunakan <b>VS Code Live Server</b> atau server lokal lainnya karena kebijakan keamanan browser (CORS) memblokir fetch via file://</small>
+          <h3>⚠️ Gagal Memuat Data</h3>
+          <p><strong>${err.message}</strong></p>
+          <br>
+          <p><strong>Penyebab & Solusi:</strong></p>
+          <ol style="text-align:left; margin:12px 0; padding-left:20px;">
+            <li><strong>CORS Policy:</strong> File dibuka langsung (file://)<br>
+              <em>Solusi: Gunakan Live Server</em>
+              <code>VS Code: Klik kanan → "Open with Live Server"</code>
+            </li>
+            <li><strong>File Tidak Ditemukan:</strong> lead_inc.json tidak ada<br>
+              <em>Solusi: Pastikan file JSON ada di folder yang sama dengan HTML</em>
+            </li>
+            <li><strong>Data Kosong:</strong> File JSON tidak berisi data valid<br>
+              <em>Solusi: Cek format JSON</em>
+            </li>
+          </ol>
+          <br>
+          <p><strong>Cara Cepat (Tanpa Server):</strong><br>
+          Gunakan Python HTTP Server:
+          <code>python -m http.server 8000</code>
+          Lalu buka: <code>http://localhost:8000</code>
+          </p>
         </div>`;
     }
   }
