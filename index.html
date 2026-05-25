@@ -27,17 +27,32 @@
     .theme-toggle { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.15); border: none; color: var(--header-text); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; backdrop-filter: blur(4px); transition: background 0.2s; }
     .theme-toggle:hover { background: rgba(255,255,255,0.25); }
 
-    /* --- STYLE INPUT JSON --- */
+    /* --- STYLE INPUT JSON & AUTH --- */
     .json-loader { background: var(--card-bg); padding: 10px 14px; border-radius: 12px; margin-bottom: 14px; display: flex; gap: 10px; align-items: center; box-shadow: var(--shadow); transition: all 0.3s ease; border: 1px solid var(--border); }
     .json-loader.hidden { display: none; }
     .json-loader input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--input-bg); color: var(--text); outline: none; }
-    .json-loader input:focus { border-color: var(--btn-bg); }
     .json-loader button { padding: 8px 16px; background: var(--info); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; }
     .json-loader button:hover { opacity: 0.9; }
     #jsonStatus { font-size: 0.75rem; font-weight: 500; min-width: 100px; text-align: right; }
     .status-success { color: var(--success); }
     .status-error { color: var(--danger); }
     .status-loading { color: var(--warning); }
+
+    /* Modal Login Style */
+    #authModal {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 10000; display: none;
+        justify-content: center; align-items: center; backdrop-filter: blur(2px);
+    }
+    .auth-box {
+        background: var(--card-bg); padding: 24px; border-radius: 16px; width: 90%; max-width: 320px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; border: 1px solid var(--border);
+    }
+    .auth-box h3 { margin-bottom: 16px; color: var(--text); }
+    .auth-input { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text); box-sizing: border-box;}
+    .auth-btn { width: 100%; padding: 10px; background: var(--btn-bg); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 8px;}
+    .auth-cancel { background: transparent; color: var(--text-light); margin-top: 8px; border: none; cursor: pointer; font-size: 0.8rem; text-decoration: underline; }
+    #authMsg { color: var(--danger); font-size: 0.8rem; margin-top: 8px; min-height: 1.2em; }
     /* ---------------------------------- */
 
     .filters { background: var(--card-bg); padding: 14px; border-radius: 12px; margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; box-shadow: var(--shadow); transition: background 0.3s, box-shadow 0.3s; }
@@ -71,8 +86,7 @@
     .spinner { border: 4px solid var(--border); border-top: 4px solid var(--btn-bg); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
-    /* Tombol Ganti Data (Footer) */
-    .reload-btn { background: none; border: none; color: var(--btn-bg); cursor: pointer; text-decoration: underline; font-size: 0.75rem; padding: 0; margin-left: 5px; }
+    .admin-link { background: none; border: none; color: var(--btn-bg); cursor: pointer; text-decoration: underline; font-size: 0.75rem; padding: 0; margin-left: 5px; }
     
     @media (max-width: 600px) { 
         .filters { grid-template-columns: 1fr; } 
@@ -89,6 +103,18 @@
     <div id="loadingText" style="color: var(--text-light)">Memuat Data...</div>
 </div>
 
+<!-- Modal Auth Upload -->
+<div id="authModal">
+    <div class="auth-box">
+        <h3>🔐 Admin Access</h3>
+        <input type="text" id="authUser" class="auth-input" placeholder="Username">
+        <input type="password" id="authPass" class="auth-input" placeholder="Password">
+        <button class="auth-btn" onclick="verifyAuth()">Login</button>
+        <div id="authMsg"></div>
+        <button class="auth-cancel" onclick="closeAuth()">Batal</button>
+    </div>
+</div>
+
 <div class="header">
   <h1>🏦 Bank Muamalat</h1>
   <div class="meta"><b>Leading Indicator Dashboard</b></div>
@@ -97,8 +123,8 @@
   <button id="themeToggle" class="theme-toggle" aria-label="Ganti Tema">🌙</button>
 </div>
 
-<!-- BAGIAN INPUT JSON LINK -->
-<div class="json-loader" id="jsonLoaderBox">
+<!-- BAGIAN INPUT JSON LINK (Hidden by default) -->
+<div class="json-loader hidden" id="jsonLoaderBox">
     <input type="text" id="jsonUrlInput" placeholder="Link JSON (GitHub Raw/Gist)...">
     <button onclick="loadFromExternalLink()">🚀 Load Data</button>
     <span id="jsonStatus"></span>
@@ -123,8 +149,8 @@
 </div>
 
 <div class="footer">
-    💡 Update data via Link JSON | 📱 Optimized for Mobile & Web | Theme: <span id="themeLabel">Light</span> | 📱 Made by Love - RBPM
-    <button class="reload-btn" onclick="showJsonInput()" title="Ganti Sumber Data">🔄 Ganti Data</button>
+    💡 Auto-sync setiap 60 detik | 📱 Optimized for Mobile & Web | Theme: <span id="themeLabel">Light</span> | 📱 Made by Love - RBPM
+    <button class="admin-link" onclick="openAuth()" title="Admin Upload Data">🔒 Admin Upload</button>
 </div>
 
 <script>
@@ -170,6 +196,12 @@
   const jsonUrlInput = document.getElementById('jsonUrlInput');
   const jsonStatus = document.getElementById('jsonStatus');
   const jsonLoaderBox = document.getElementById('jsonLoaderBox');
+  
+  // Auth Elements
+  const authModal = document.getElementById('authModal');
+  const authUser = document.getElementById('authUser');
+  const authPass = document.getElementById('authPass');
+  const authMsg = document.getElementById('authMsg');
 
   function setTheme(theme) {
     html.setAttribute('data-theme', theme);
@@ -193,18 +225,53 @@
     }
   }
 
-  // ✅ PERBAIKAN FUNGSI RESET
+  // ✅ PERBAIKAN FUNGSI RESET FILTER
   function resetDashboard() {
+    // 1. Kembalikan nilai dropdown ke ALL
     coBranchSelect.value = 'ALL';
-    updateBranchOptions('ALL'); // Ini akan mereset branchSelect ke 'ALL' juga
-    updateBranchDisplay();      // Update teks header
-    renderDashboard();          // Render ulang kartu
+    
+    // 2. Update opsi Branch (ini juga akan mereset branchSelect ke 'ALL')
+    updateBranchOptions('ALL');
+    
+    // 3. Update teks Header
+    updateBranchDisplay();
+    
+    // 4. Render ulang dashboard dengan data full
+    renderDashboard();
+  }
+
+  // --- AUTH FUNCTIONS ---
+  function openAuth() {
+    authModal.style.display = 'flex';
+    authUser.value = '';
+    authPass.value = '';
+    authMsg.textContent = '';
+    authUser.focus();
+  }
+
+  function closeAuth() {
+    authModal.style.display = 'none';
+  }
+
+  function verifyAuth() {
+    const u = authUser.value.trim();
+    const p = authPass.value.trim();
+
+    if (u === 'RBPM' && p === 'medan') {
+        closeAuth();
+        showJsonInput();
+    } else {
+        authMsg.textContent = "Anda tidak berhak upload data!!";
+        authPass.value = '';
+    }
   }
 
   function showJsonInput() {
     jsonLoaderBox.classList.remove('hidden');
     jsonStatus.textContent = "";
     jsonUrlInput.focus();
+    // Scroll ke input box
+    jsonLoaderBox.scrollIntoView({ behavior: 'smooth' });
   }
 
   function updateBranchOptions(selectedCo) {
@@ -426,10 +493,17 @@
     }
   }
 
-  async function loadFromExternalLink() {
+  async function loadFromExternalLink(isAutoRefresh = false) {
     let url = jsonUrlInput.value.trim();
+    
+    // Jika auto refresh, ambil dari localStorage
+    if (isAutoRefresh) {
+        url = localStorage.getItem('lastJsonUrl');
+        if (!url) return; // Tidak ada URL tersimpan, skip
+    }
+
     if (!url) {
-        alert("Masukkan URL JSON terlebih dahulu!");
+        if(!isAutoRefresh) alert("Masukkan URL JSON terlebih dahulu!");
         return;
     }
 
@@ -440,10 +514,12 @@
         }
     }
 
-    jsonStatus.textContent = "Loading...";
-    jsonStatus.className = "status-loading";
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.style.opacity = '1';
+    if (!isAutoRefresh) {
+        jsonStatus.textContent = "Loading...";
+        jsonStatus.className = "status-loading";
+        loadingOverlay.style.display = 'flex';
+        loadingOverlay.style.opacity = '1';
+    }
 
     try {
         const response = await fetch(url);
@@ -453,27 +529,33 @@
         const success = await processAndRenderData(data);
         
         if (success) {
-            jsonStatus.textContent = "✅ Success";
-            jsonStatus.className = "status-success";
-            localStorage.setItem('lastJsonUrl', jsonUrlInput.value.trim());
-            
-            // ✅ Sembunyikan Input Box setelah sukses
-            setTimeout(() => {
-                jsonLoaderBox.classList.add('hidden');
-            }, 1000);
+            if (!isAutoRefresh) {
+                jsonStatus.textContent = "✅ Success";
+                jsonStatus.className = "status-success";
+                localStorage.setItem('lastJsonUrl', jsonUrlInput.value.trim());
+                
+                // Sembunyikan Input Box setelah sukses
+                setTimeout(() => {
+                    jsonLoaderBox.classList.add('hidden');
+                }, 1000);
+            }
         } else {
             throw new Error("Format data salah");
         }
     } catch (error) {
         console.error(error);
-        jsonStatus.textContent = "❌ Failed";
-        jsonStatus.className = "status-error";
-        alert("Gagal mengambil data. Pastikan link benar.\n\nTips: Gunakan link RAW GitHub.");
+        if (!isAutoRefresh) {
+            jsonStatus.textContent = "❌ Failed";
+            jsonStatus.className = "status-error";
+            alert("Gagal mengambil data. Pastikan link benar.");
+        }
     } finally {
-        setTimeout(() => {
-            loadingOverlay.style.opacity = '0';
-            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 300);
-        }, 500);
+        if (!isAutoRefresh) {
+            setTimeout(() => {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => { loadingOverlay.style.display = 'none'; }, 300);
+            }, 500);
+        }
     }
   }
 
@@ -488,6 +570,14 @@
         processAndRenderData(defaultData);
         loadingOverlay.style.display = 'none';
     }
+
+    // ✅ AUTO REFRESH SETIAP 60 DETIK (Agar terbaca di semua client)
+    setInterval(() => {
+        if (localStorage.getItem('lastJsonUrl')) {
+            console.log("Auto-refreshing data...");
+            loadFromExternalLink(true);
+        }
+    }, 60000); 
   }
 
   document.addEventListener('DOMContentLoaded', initApp);
