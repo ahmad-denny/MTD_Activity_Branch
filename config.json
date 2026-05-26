@@ -1,7 +1,7 @@
 {
   "datasets": [
-    { "label": "Data Mei 2026", "file": "Dataset.json" },
-    { "label": "Data April 2026", "file": "Dataset_April.json" },
-    { "label": "Data Maret 2026", "file": "Dataset_Maret.json" }
+    { "label": "Data Mei 2026", "file": "data_mei.json" },
+    { "label": "Data April 2026", "file": "data_april.json" },
+    { "label": "Data Maret 2026", "file": "data_maret.json" }
   ]
 }
