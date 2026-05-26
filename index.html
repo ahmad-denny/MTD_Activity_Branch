@@ -28,13 +28,13 @@
     
     .filters { background: var(--card-bg); padding: 14px; border-radius: 12px; margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; box-shadow: var(--shadow); transition: background 0.3s, box-shadow 0.3s; }
     
-    /* Style khusus untuk selector dataset (Hidden by default) */
+    /* Style khusus untuk selector dataset */
     .dataset-selector-container {
         grid-column: span 3;
         margin-bottom: 10px;
         padding-bottom: 10px;
         border-bottom: 1px dashed var(--border);
-        display: none; /* Tersembunyi sampai admin login */
+        display: none; /* Hidden by default */
         animation: fadeIn 0.5s;
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -99,6 +99,18 @@
     }
     .modal-error { color: var(--danger); font-size: 12px; margin-top: 8px; display: none; }
 
+    /* Auto Refresh Toggle */
+    .auto-refresh-container {
+        grid-column: span 3;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        font-size: 11px;
+        color: var(--text-light);
+        margin-top: 5px;
+    }
+    .auto-refresh-container input { margin-right: 5px; }
+
     @media (max-width: 600px) { .filters { grid-template-columns: 1fr; } .dataset-selector-container { grid-column: span 1; } .params-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -115,7 +127,7 @@
   <!-- DATASET SELECTOR (Hanya muncul setelah login admin) -->
   <div class="dataset-selector-container" id="adminPanel">
     <label>📂 ADMIN: PILIH PERIODE DATA:</label>
-    <select id="datasetSelector" onchange="loadSelectedDataset()">
+    <select id="datasetSelector" onchange="handleDatasetChange()">
         <option value="">Memuat daftar data...</option>
     </select>
   </div>
@@ -131,6 +143,11 @@
     </select>
   </div>
   <button onclick="resetDashboard()">🔄 Reset Filter</button>
+  
+  <div class="auto-refresh-container">
+      <input type="checkbox" id="autoRefreshCheck" onchange="toggleAutoRefresh()">
+      <label for="autoRefreshCheck">Auto Refresh (60s)</label>
+  </div>
 </div>
   
   <div class="params-grid" id="paramsContainer"></div>
@@ -155,6 +172,8 @@
 <script>
   let ntData = [];
   let availableDatasets = [];
+  let autoRefreshInterval = null;
+  
   const coBranchSelect = document.getElementById('coBranchFilter');
   const branchSelect = document.getElementById('branchFilter');
   const themeToggle = document.getElementById('themeToggle');
@@ -329,19 +348,37 @@
     const u = document.getElementById('adminUser').value;
     const p = document.getElementById('adminPass').value;
     
-    if (u === 'RBPM' && p === 'medan') {
+    if (u === 'RBMP' && p === 'medan') {
         closeAdminModal();
         document.getElementById('adminPanel').style.display = 'block'; // Tampilkan dropdown
-        alert("✅ Akses Admin Diterima. Silakan pilih periode data.");
+        // Simpan status login sederhana di session storage agar tidak perlu login ulang saat refresh tab (opsional)
+        sessionStorage.setItem('isAdmin', 'true');
+        
         fetchConfig(); // Load daftar JSON
     } else {
         document.getElementById('loginError').style.display = 'block';
     }
   }
 
+  // --- AUTO REFRESH & CACHE BUSTING ---
+  function toggleAutoRefresh() {
+      const isChecked = document.getElementById('autoRefreshCheck').checked;
+      if (isChecked) {
+          // Refresh setiap 60 detik
+          autoRefreshInterval = setInterval(() => {
+              console.log("Auto refreshing data...");
+              const currentFile = document.getElementById('datasetSelector').value || 'Dataset.json';
+              const currentLabel = document.getElementById('currentPeriodLabel').textContent;
+              loadDatasetFile(currentFile, currentLabel, true); // true = force reload
+          }, 60000);
+      } else {
+          clearInterval(autoRefreshInterval);
+      }
+  }
+
   // --- FUNGSI LOAD DATASET DINAMIS ---
   function fetchConfig() {
-    fetch('config.json')
+    fetch('config.json?t=' + new Date().getTime()) // Bypass cache config
         .then(r => {
             if (!r.ok) throw new Error("Config not found");
             return r.json();
@@ -349,14 +386,25 @@
         .then(config => {
             availableDatasets = config.datasets;
             populateDatasetSelector();
-            // Jika ini pertama kali login, load data pertama
-            if(ntData.length === 0 && availableDatasets.length > 0) {
+            
+            // Cek apakah ada data yang tersimpan di localStorage dari sesi sebelumnya
+            const savedDataset = localStorage.getItem('lastSelectedDataset');
+            const savedLabel = localStorage.getItem('lastSelectedLabel');
+
+            if (savedDataset && savedLabel) {
+                // Jika ada, load data tersebut
+                loadDatasetFile(savedDataset, savedLabel);
+                // Set dropdown ke nilai yang tersimpan
+                document.getElementById('datasetSelector').value = savedDataset;
+            } else if (availableDatasets.length > 0) {
+                // Jika tidak ada saved data, load default pertama
                 loadDatasetFile(availableDatasets[0].file, availableDatasets[0].label);
             }
         })
         .catch(err => {
             console.warn("config.json tidak ditemukan");
-            alert("Gagal memuat config.json. Pastikan file sudah ada di GitHub.");
+            // Fallback jika config error
+            loadDatasetFile('Dataset.json', 'Default Data');
         });
   }
 
@@ -371,19 +419,22 @@
     });
   }
 
-  function loadSelectedDataset() {
-    const selector = document.getElementById('datasetSelector');
-    const selectedFile = selector.value;
-    const selectedLabel = selector.options[selector.selectedIndex].text;
-    if (selectedFile) {
-        loadDatasetFile(selectedFile, selectedLabel);
-    }
+  function handleDatasetChange() {
+      const selector = document.getElementById('datasetSelector');
+      const selectedFile = selector.value;
+      const selectedLabel = selector.options[selector.selectedIndex].text;
+      if (selectedFile) {
+          loadDatasetFile(selectedFile, selectedLabel);
+      }
   }
 
-  function loadDatasetFile(filename, label) {
+  function loadDatasetFile(filename, label, forceReload = false) {
     document.getElementById('currentPeriodLabel').textContent = `Memuat ${label}...`;
     
-    fetch(filename)
+    // Cache Busting: Tambahkan timestamp agar browser tidak mengambil dari cache
+    const cacheBuster = forceReload ? ('?t=' + new Date().getTime()) : '';
+    
+    fetch(filename + cacheBuster)
         .then(response => {
             if (!response.ok) throw new Error(`Gagal memuat ${filename}`);
             return response.json();
@@ -412,6 +463,11 @@
             }));
 
             document.getElementById('currentPeriodLabel').textContent = label;
+            
+            // SIMPAN KE LOCALSTORAGE AGAR TETAP DIPILIH SAAT REFRESH
+            localStorage.setItem('lastSelectedDataset', filename);
+            localStorage.setItem('lastSelectedLabel', label);
+
             updateBranchOptions('ALL');
             updateBranchDisplay();
             renderDashboard();
@@ -431,9 +487,13 @@
     setTheme(localStorage.getItem('theme') || 'light');
     themeToggle.addEventListener('click', () => setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
     
-    // Load default data langsung saat halaman dibuka (opsional, agar tidak kosong)
-    // Jika ingin wajib login dulu untuk lihat data, hapus baris di bawah ini
-    loadDatasetFile('data_mei.json', 'Default Data'); 
+    // Cek jika admin sudah login di sesi ini (opsional, agar dropdown tetap muncul saat refresh)
+    if (sessionStorage.getItem('isAdmin') === 'true') {
+        document.getElementById('adminPanel').style.display = 'block';
+    }
+
+    // Mulai dengan mengambil config
+    fetchConfig();
   });
 </script>
 </body>
